@@ -101,6 +101,8 @@ async fn async_main() -> Result<()> {
     // ── 10. Cocoon watcher ─────────────────────────────────────
     let cocoon = Arc::clone(&kernel.cocoon);
     let cocoon_shutdown = Arc::clone(&shutdown);
+    let cocoon_poll_secs = config.cocoon.poll_interval_seconds;
+    let proactive_interval_secs = config.proactive.research_interval_minutes as u64 * 60;
     tokio::spawn(async move {
         if let Err(e) = cocoon.init().await {
             error!("Cocoon init failed: {e}");
@@ -109,15 +111,24 @@ async fn async_main() -> Result<()> {
         loop {
             tokio::select! {
                 _ = cocoon_shutdown.notified() => break,
-                _ = tokio::time::sleep(std::time::Duration::from_secs(
-                    config.cocoon.poll_interval_seconds,
-                )) => {
+                _ = tokio::time::sleep(std::time::Duration::from_secs(cocoon_poll_secs)) => {
                     if let Err(e) = cocoon.poll().await {
                         error!("Cocoon poll error: {e}");
                     }
                 }
             }
         }
+    });
+
+    // ── 10b. Proactive monitoring ─────────────────────────────
+    let proactive_llm = Arc::clone(&kernel.llm);
+    let proactive_shutdown = Arc::clone(&shutdown);
+    tokio::spawn(async move {
+        let engine = jarvis_mind::proactive::ProactiveEngine::new(
+            proactive_llm,
+            proactive_interval_secs,
+        );
+        engine.run(proactive_shutdown).await;
     });
 
     // ── 11. HTTP/WS server ─────────────────────────────────────
