@@ -114,20 +114,16 @@ impl LlmEngine {
 
     /// Generate a J.A.R.V.I.S.-style response.
     ///
-    /// This is NOT a generic chatbot response. The system prompt enforces
-    /// the JARVIS personality: proactive, protective, witty, "Efendim".
-    pub async fn generate(&self, prompt: &str) -> Result<String> {
+    /// `input` is the raw user command (for keyword matching in stub mode).
+    /// `rag_context` is retrieved memory context (used only in full LLM mode).
+    ///
+    /// Direct intents are handled by CommandRouter BEFORE this is called.
+    pub async fn generate(&self, input: &str, rag_context: &[String]) -> Result<String> {
         if !self.is_loaded() {
             bail!("LLM henüz yüklenmedi");
         }
 
         let system = self.system_prompt.read().clone();
-
-        // Check for special intent patterns first
-        if let Some(response) = self.handle_direct_intent(prompt) {
-            self.record_turn(prompt, &response);
-            return Ok(response);
-        }
 
         // Build context-aware prompt
         let history = self.conversation_history.read();
@@ -143,17 +139,26 @@ impl LlmEngine {
             .collect();
         drop(history);
 
-        // If no model loaded, generate JARVIS-style stub response
+        // If no model loaded, generate JARVIS-style stub response using RAW input
         if self.config.model_path.is_empty()
             || !std::path::Path::new(&self.config.model_path).exists()
         {
-            let response = self.generate_stub_response(prompt);
-            self.record_turn(prompt, &response);
+            let response = self.generate_stub_response(input);
+            self.record_turn(input, &response);
             return Ok(response);
         }
 
-        // Production path: llama.cpp inference
-        let _full_prompt = build_inference_prompt(&system, &recent, prompt);
+        // Production path: llama.cpp inference with RAG context
+        let prompt = if rag_context.is_empty() {
+            input.to_string()
+        } else {
+            format!(
+                "Hafıza kayıtları:\n{}\n\nEmir'in komutu: {}",
+                rag_context.join("\n"),
+                input
+            )
+        };
+        let _full_prompt = build_inference_prompt(&system, &recent, &prompt);
 
         // use llama_cpp_rs::options::PredictOptions;
         //
@@ -168,8 +173,8 @@ impl LlmEngine {
         //
         // let response = self.model.read().unwrap().predict(full_prompt, predict_opts)?;
 
-        let response = self.generate_stub_response(prompt);
-        self.record_turn(prompt, &response);
+        let response = self.generate_stub_response(input);
+        self.record_turn(input, &response);
         Ok(response)
     }
 

@@ -68,19 +68,8 @@ impl CommandRouter {
         // RAG context retrieval
         let context = self.rag.query(input, 6).await.unwrap_or_default();
 
-        // Build prompt with context
-        let prompt = if context.is_empty() {
-            input.to_string()
-        } else {
-            format!(
-                "Hafıza kayıtları:\n{}\n\nEmir'in komutu: {}",
-                context.join("\n"),
-                input
-            )
-        };
-
-        // Generate response via LLM (with JARVIS personality)
-        let response = self.llm.generate(&prompt).await?;
+        // Generate response via LLM with raw input + separate RAG context
+        let response = self.llm.generate(input, &context).await?;
 
         // Store interaction in memory for future context
         let _ = self.rag.store(input, &response).await;
