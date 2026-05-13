@@ -1,0 +1,16 @@
+[package]
+name = "jarvis-voice"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+jarvis-common = { path = "../jarvis-common" }
+tokio.workspace = true
+serde.workspace = true
+tracing.workspace = true
+anyhow.workspace = true
+async-trait.workspace = true
+parking_lot.workspace = true
+strsim.workspace = true

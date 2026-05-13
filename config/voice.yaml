@@ -1,0 +1,33 @@
+voice:
+  enabled: true
+  stt:
+    engine: "whisper"
+    model_size: "small"
+    language: "tr"
+    sample_rate: 16000
+    chunk_duration: 1.0
+    silence_timeout: 1.5
+    min_command_chunks: 2
+    rms_threshold: 0.002
+  tts:
+    engine: "xtts_v2"
+    voice_profile: ""   # Set to Iron Man 2 JARVIS voice: voice/models/jarvis_ironman2.wav
+    output_path: "data/last_reply.wav"
+    sample_rate: 24000
+    language: "tr"
+  wake_word:
+    primary: "jarvis"
+    variants:
+      - "jarvis"
+      - "carvis"
+      - "garvis"
+      - "jervis"
+      - "jarvıs"
+      - "carvıs"
+      - "jarbis"
+      - "cerbis"
+      - "jarwis"
+    fuzzy_match:
+      enabled: true
+      max_distance: 3
+      min_word_length: 4

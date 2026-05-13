@@ -1,0 +1,18 @@
+memory:
+  sync_interval_seconds: 300
+  drive:
+    enabled: true
+    root_folder: "JARVIS_BRAIN"
+    credentials_path: ""   # Set to service account JSON path
+    token_path: ""
+    offline_buffer_path: "data/offline_buffer.jsonl"
+    capacity_tb: 5
+    request_timeout_seconds: 15
+  vector_cache:
+    path: "memory/vector/chroma"
+    embed_model: "sentence-transformers/all-MiniLM-L6-v2"
+    top_k: 6
+    collection_name: "jarvis_memory"
+    batch_size: 64
+    max_cache_size_mb: 512
+    persist_on_shutdown: true

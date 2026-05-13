@@ -1,0 +1,39 @@
+# J.A.R.V.I.S. 2.0 (Mark I) — Master Configuration
+system:
+  name: "J.A.R.V.I.S."
+  version_mark: 1
+  version_semver: "2.0.1"
+  creator: "Emir"
+  language: "tr-TR"
+  offline_mode_capable: true
+
+hardware:
+  cpu: "AMD Ryzen 5 7600X"
+  ram_gb: 32
+  gpu: "NVIDIA RTX 4060"
+  vram_gb: 8
+  vram_reserve_gb: 1.0
+  ram_reserve_gb: 4.0
+
+includes:
+  - llm.yaml
+  - memory.yaml
+  - security.yaml
+  - voice.yaml
+  - biometrics.yaml
+  - screen.yaml
+  - daemon.yaml
+  - proactive.yaml
+
+cocoon:
+  auto_upgrade_enabled: true
+  mark_threshold_loc_changed: 5000
+  current_mark_dir: "marks/mark_I"
+  staging_dir: "marks/_staging"
+  rollback_dir: "marks/_rollback"
+  marks_root: "marks"
+  project_root: "."
+  security_must_stay_alive: true
+  health_check_timeout_seconds: 30
+  poll_interval_seconds: 60
+  version_semver: "2.0.1"

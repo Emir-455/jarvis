@@ -1,0 +1,4 @@
+daemon:
+  pid_file: "data/jarvis.pid"
+  log_dir: "logs"
+  crash_dump_dir: "logs/crashes"
