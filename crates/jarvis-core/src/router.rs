@@ -22,11 +22,13 @@ enum Intent {
 /// Routes incoming commands (voice or WebSocket) to the appropriate handler.
 ///
 /// Unlike a chatbot router, J.A.R.V.I.S. classifies intent first:
-/// 1. Detect intent category
-/// 2. Retrieve relevant RAG context
-/// 3. Build personality-aware prompt
-/// 4. Generate response with JARVIS character
-/// 5. Store interaction in memory
+/// 1. Trim & sanitize input
+/// 2. Check direct intents (fast path — no LLM needed)
+/// 3. Classify intent category
+/// 4. Retrieve relevant RAG context
+/// 5. Build personality-aware prompt
+/// 6. Generate response with JARVIS character
+/// 7. Store interaction in memory
 pub struct CommandRouter {
     llm: Arc<LlmEngine>,
     rag: Arc<RagEngine>,
@@ -39,6 +41,23 @@ impl CommandRouter {
 
     /// Process a user command with intent classification.
     pub async fn handle(&self, input: &str) -> Result<String> {
+        let input = input.trim();
+        if input.is_empty() {
+            return Ok("Efendim, bir komut algılayamadım.".to_string());
+        }
+
+        // Fast path: check direct intents on raw input BEFORE RAG augmentation
+        if let Some(response) = self.llm.handle_direct_intent(input) {
+            let intent = classify_intent(input);
+            info!(
+                input_len = input.len(),
+                intent = ?intent,
+                "Doğrudan intent yanıtı"
+            );
+            let _ = self.rag.store(input, &response).await;
+            return Ok(response);
+        }
+
         let intent = classify_intent(input);
         info!(
             input_len = input.len(),

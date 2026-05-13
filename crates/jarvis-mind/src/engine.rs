@@ -174,7 +174,7 @@ impl LlmEngine {
     }
 
     /// Handle direct intents without LLM (fast path for system commands).
-    fn handle_direct_intent(&self, input: &str) -> Option<String> {
+    pub fn handle_direct_intent(&self, input: &str) -> Option<String> {
         let lower = input.to_lowercase();
 
         if lower.contains("saat") && lower.contains("kaç") {
