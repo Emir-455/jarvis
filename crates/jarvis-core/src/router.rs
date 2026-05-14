@@ -79,17 +79,21 @@ impl CommandRouter {
 }
 
 /// Classify user input into intent categories.
+/// Supports both proper Turkish and ASCII equivalents (Windows CMD compat).
 fn classify_intent(input: &str) -> Intent {
     let lower = input.to_lowercase();
+    let ascii = normalize_turkish(&lower);
 
     let security_keywords = [
-        "güvenlik", "tehdit", "virüs", "tarama", "scan", "shield",
-        "karantina", "quarantine", "antivirüs", "saldırı", "threat",
+        "güvenlik", "guvenlik", "tehdit", "virüs", "virus",
+        "tarama", "scan", "shield", "karantina", "quarantine",
+        "antivirüs", "antivirus", "saldırı", "saldiri", "threat",
     ];
 
     let system_keywords = [
         "durum", "status", "sistem", "cpu", "ram", "gpu", "disk",
-        "performans", "sağlık", "health", "uptime", "sıcaklık",
+        "performans", "sağlık", "saglik", "health", "uptime",
+        "sıcaklık", "sicaklik",
     ];
 
     let dev_keywords = [
@@ -99,13 +103,30 @@ fn classify_intent(input: &str) -> Intent {
         "program", "fonksiyon", "function", "class", "struct",
     ];
 
-    if security_keywords.iter().any(|k| lower.contains(k)) {
+    let check = |k: &&str| lower.contains(k) || ascii.contains(k);
+
+    if security_keywords.iter().any(check) {
         Intent::Security
-    } else if system_keywords.iter().any(|k| lower.contains(k)) {
+    } else if system_keywords.iter().any(check) {
         Intent::SystemQuery
-    } else if dev_keywords.iter().any(|k| lower.contains(k)) {
+    } else if dev_keywords.iter().any(check) {
         Intent::Development
     } else {
         Intent::Conversation
     }
+}
+
+/// Normalize Turkish special characters to ASCII equivalents.
+fn normalize_turkish(s: &str) -> String {
+    s.chars()
+        .map(|c| match c {
+            'ç' => 'c',
+            'ş' => 's',
+            'ğ' => 'g',
+            'ı' => 'i',
+            'ö' => 'o',
+            'ü' => 'u',
+            _ => c,
+        })
+        .collect()
 }

@@ -56,6 +56,10 @@ impl Default for SystemConfig {
 pub struct LlmConfig {
     pub backend: String,
     pub model_path: String,
+    #[serde(default)]
+    pub ollama_url: String,
+    #[serde(default)]
+    pub ollama_model: String,
     pub n_ctx: u32,
     pub n_gpu_layers: i32,
     pub n_threads: u32,
@@ -76,6 +80,8 @@ impl Default for LlmConfig {
         Self {
             backend: "llama_cpp".into(),
             model_path: String::new(),
+            ollama_url: String::new(),
+            ollama_model: String::new(),
             n_ctx: 4096,
             n_gpu_layers: 35,
             n_threads: 12,

@@ -6,6 +6,7 @@ use tracing::{info, warn};
 
 use jarvis_common::config::LlmConfig;
 
+use crate::ollama::OllamaClient;
 use crate::prompt::{build_inference_prompt, build_system_prompt};
 
 /// LLM inference engine backed by llama.cpp (via GGUF models).
@@ -22,6 +23,7 @@ pub struct LlmEngine {
     loaded: AtomicBool,
     system_prompt: RwLock<String>,
     conversation_history: RwLock<Vec<ConversationTurn>>,
+    ollama: OllamaClient,
 }
 
 #[derive(Clone, Debug)]
@@ -43,6 +45,7 @@ impl LlmEngine {
             loaded: AtomicBool::new(false),
             system_prompt: RwLock::new(build_system_prompt()),
             conversation_history: RwLock::new(Vec::new()),
+            ollama: OllamaClient::new(&config.ollama_url, &config.ollama_model),
         }
     }
 
@@ -60,10 +63,18 @@ impl LlmEngine {
     /// - `n_ctx=4096`: context window (balanced for speed)
     pub async fn load(&self) -> Result<()> {
         if self.config.model_path.is_empty() {
-            warn!(
-                "Model yolu yapılandırılmadı — LLM offline/stub modunda. \
-                 llm.model_path ayarlayarak tam çıkarımı etkinleştirin."
-            );
+            if self.ollama.is_configured() {
+                info!(
+                    url = %self.config.ollama_url,
+                    model = %self.config.ollama_model,
+                    "Ollama backend yapılandırıldı — LLM Ollama üzerinden çalışacak"
+                );
+            } else {
+                warn!(
+                    "Model yolu yapılandırılmadı — LLM offline/stub modunda. \
+                     llm.model_path veya llm.ollama_url ayarlayarak tam çıkarımı etkinleştirin."
+                );
+            }
             self.loaded.store(true, Ordering::SeqCst);
             return Ok(());
         }
@@ -123,26 +134,37 @@ impl LlmEngine {
             bail!("LLM henüz yüklenmedi");
         }
 
-        let system = self.system_prompt.read().clone();
+        let (system, recent) = {
+            let sys = self.system_prompt.read().clone();
+            let history = self.conversation_history.read();
+            let r: Vec<String> = history
+                .iter()
+                .rev()
+                .take(6)
+                .rev()
+                .map(|t| match t.role {
+                    Role::User => format!("Emir: {}", t.content),
+                    Role::Assistant => format!("J.A.R.V.I.S.: {}", t.content),
+                })
+                .collect();
+            (sys, r)
+        };
 
-        // Build context-aware prompt
-        let history = self.conversation_history.read();
-        let recent: Vec<String> = history
-            .iter()
-            .rev()
-            .take(6)
-            .rev()
-            .map(|t| match t.role {
-                Role::User => format!("Emir: {}", t.content),
-                Role::Assistant => format!("J.A.R.V.I.S.: {}", t.content),
-            })
-            .collect();
-        drop(history);
-
-        // If no model loaded, generate JARVIS-style stub response using RAW input
+        // If no local model, try Ollama; fall back to stub
         if self.config.model_path.is_empty()
             || !std::path::Path::new(&self.config.model_path).exists()
         {
+            if self.ollama.is_configured() {
+                match self.ollama.generate(&system, &recent, input, rag_context).await {
+                    Ok(response) => {
+                        self.record_turn(input, &response);
+                        return Ok(response);
+                    }
+                    Err(e) => {
+                        warn!(error = %e, "Ollama hatası — stub yanıta geçiliyor");
+                    }
+                }
+            }
             let response = self.generate_stub_response(input);
             self.record_turn(input, &response);
             return Ok(response);
@@ -179,26 +201,32 @@ impl LlmEngine {
     }
 
     /// Handle direct intents without LLM (fast path for system commands).
+    ///
+    /// Matches both proper Turkish (ç, ş, ğ, ı, ö, ü) and ASCII equivalents
+    /// for Windows CMD compatibility.
     pub fn handle_direct_intent(&self, input: &str) -> Option<String> {
         let lower = input.to_lowercase();
+        let ascii = normalize_turkish(&lower);
 
-        if lower.contains("saat") && lower.contains("kaç") {
+        if (lower.contains("saat") && lower.contains("kaç"))
+            || (ascii.contains("saat") && ascii.contains("kac"))
+        {
             let now = chrono::Local::now();
-            return Some(format!(
-                "Efendim, saat {}.",
-                now.format("%H:%M")
-            ));
+            return Some(format!("Efendim, saat {}.", now.format("%H:%M")));
         }
 
-        if lower.contains("tarih") || (lower.contains("bugün") && lower.contains("ne")) {
+        if lower.contains("tarih")
+            || (lower.contains("bugün") && lower.contains("ne"))
+            || (ascii.contains("bugun") && ascii.contains("ne"))
+        {
             let now = chrono::Local::now();
-            return Some(format!(
-                "Efendim, bugün {}.",
-                now.format("%d %B %Y, %A")
-            ));
+            return Some(format!("Efendim, bugün {}.", now.format("%d %B %Y, %A")));
         }
 
-        if lower.contains("nasılsın") || lower.contains("naber") {
+        if lower.contains("nasılsın")
+            || lower.contains("naber")
+            || ascii.contains("nasilsin")
+        {
             return Some(
                 "Tüm sistemler nominal seviyede çalışıyor, Efendim. \
                  Sizin için her zaman hazırım."
@@ -214,7 +242,7 @@ impl LlmEngine {
             return Some("For you, Efendim, always.".to_string());
         }
 
-        if lower.contains("günaydın") {
+        if lower.contains("günaydın") || ascii.contains("gunaydin") {
             return Some(
                 "Günaydın, Efendim. Sistemler aktif, güvenlik kalkanı çalışıyor. \
                  Güzel bir gün olacak."
@@ -222,7 +250,10 @@ impl LlmEngine {
             );
         }
 
-        if lower.contains("iyi geceler") || lower.contains("uyuyacağım") {
+        if lower.contains("iyi geceler")
+            || lower.contains("uyuyacağım")
+            || ascii.contains("uyuyacagim")
+        {
             return Some(
                 "İyi geceler, Efendim. Nöbet görevini devralıyorum — \
                  güvenlik kalkanı aktif kalacak."
@@ -236,32 +267,41 @@ impl LlmEngine {
     /// Generate a JARVIS-personality stub response when no LLM model is loaded.
     fn generate_stub_response(&self, input: &str) -> String {
         let lower = input.to_lowercase();
+        let ascii = normalize_turkish(&lower);
 
         if lower.contains("kod") || lower.contains("yaz") || lower.contains("program") {
             return format!(
                 "Efendim, kodlama isteğinizi aldım: \"{}\". \
-                 Tam çıkarım için GGUF model dosyasını yapılandırmanız gerekiyor. \
+                 Tam çıkarım için Ollama kurmanız veya GGUF model dosyasını yapılandırmanız gerekiyor. \
                  Ardından God Mode seviyesinde kod üretimi yapabilirim.",
                 &input[..input.len().min(80)]
             );
         }
 
-        if lower.contains("güvenlik") || lower.contains("tehdit") || lower.contains("virüs") {
+        if lower.contains("güvenlik")
+            || lower.contains("tehdit")
+            || lower.contains("virüs")
+            || ascii.contains("guvenlik")
+            || ascii.contains("virus")
+        {
             return "Efendim, güvenlik taraması başlatılıyor. \
                     Shield modülü aktif — tüm bölgeler izleniyor."
                 .to_string();
         }
 
-        if lower.contains("sistem") || lower.contains("durum") || lower.contains("status") {
+        if lower.contains("sistem")
+            || lower.contains("durum")
+            || lower.contains("status")
+        {
             return "Efendim, sistem durumu: \
                     CPU nominal, RAM kullanımı stabil, Shield aktif. \
                     Tüm modüller operasyonel."
                 .to_string();
         }
 
-        "Efendim, komutunuzu aldım. Tam otonom çıkarım için \
-         GGUF model dosyasını config/llm.yaml içinde yapılandırın. \
-         Mevcut durumda temel fonksiyonlar ve sistem koruması aktif."
+        "Efendim, komutunuzu aldım. Tam interaktif yanıt için \
+         Ollama kurmanız gerekiyor: https://ollama.com \
+         Kurulumdan sonra: ollama pull llama3.1 ve config/llm.yaml'da ollama_url ayarlayın."
             .to_string()
     }
 
@@ -290,4 +330,26 @@ impl LlmEngine {
     pub fn clear_history(&self) {
         self.conversation_history.write().clear();
     }
+}
+
+/// Normalize Turkish special characters to ASCII equivalents.
+/// This allows matching on Windows CMD where ç→c, ş→s, ğ→g, ı→i, ö→o, ü→u.
+fn normalize_turkish(s: &str) -> String {
+    s.chars()
+        .map(|c| match c {
+            'ç' => 'c',
+            'ş' => 's',
+            'ğ' => 'g',
+            'ı' => 'i',
+            'ö' => 'o',
+            'ü' => 'u',
+            'İ' => 'i',
+            'Ç' => 'c',
+            'Ş' => 's',
+            'Ğ' => 'g',
+            'Ö' => 'o',
+            'Ü' => 'u',
+            _ => c,
+        })
+        .collect()
 }
