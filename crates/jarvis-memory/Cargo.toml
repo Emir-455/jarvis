@@ -1,0 +1,19 @@
+[package]
+name = "jarvis-memory"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+jarvis-common = { path = "../jarvis-common" }
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+anyhow.workspace = true
+async-trait.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+reqwest.workspace = true
+sha2.workspace = true

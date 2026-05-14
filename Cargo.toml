@@ -1,0 +1,86 @@
+[workspace]
+members = [
+    ".",
+    "crates/jarvis-core",
+    "crates/jarvis-mind",
+    "crates/jarvis-body",
+    "crates/jarvis-memory",
+    "crates/jarvis-voice",
+    "crates/jarvis-shield",
+    "crates/jarvis-media",
+    "crates/jarvis-protocols",
+    "crates/jarvis-developer",
+    "crates/jarvis-common",
+    "crates/jarvis-install",
+    "crates/jarvis-tui",
+    "crates/jarvis-image",
+    "crates/jarvis-utils",
+    "crates/jarvis-daemon",
+    "crates/jarvis-cocoon",
+    "crates/jarvis-biometrics",
+    "crates/jarvis-config",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+license = "Proprietary"
+authors = ["Verdent"]
+
+[workspace.dependencies]
+tokio = { version = "1", features = ["full"] }
+axum = "0.7"
+tower = "0.5"
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
+serde_json = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+thiserror = "2"
+anyhow = "1"
+uuid = { version = "1", features = ["serde", "v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+dashmap = "6"
+parking_lot = "0.12"
+bytes = "1"
+async-trait = "0.1"
+reqwest = { version = "0.12", features = ["json"] }
+notify = "7"
+sha2 = "0.10"
+regex = "1"
+glob = "0.3"
+strsim = "0.11"
+dirs = "6"
+
+[package]
+name = "jarvis"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "jarvis"
+path = "src/main.rs"
+
+[dependencies]
+tokio.workspace = true
+axum = { workspace = true, features = ["ws"] }
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+jarvis-common = { path = "crates/jarvis-common" }
+jarvis-core = { path = "crates/jarvis-core" }
+jarvis-config = { path = "crates/jarvis-config" }
+jarvis-daemon = { path = "crates/jarvis-daemon" }
+jarvis-mind = { path = "crates/jarvis-mind" }
+jarvis-memory = { path = "crates/jarvis-memory" }
+jarvis-voice = { path = "crates/jarvis-voice" }
+jarvis-shield = { path = "crates/jarvis-shield" }
+jarvis-cocoon = { path = "crates/jarvis-cocoon" }
+jarvis-protocols = { path = "crates/jarvis-protocols" }
+jarvis-biometrics = { path = "crates/jarvis-biometrics" }

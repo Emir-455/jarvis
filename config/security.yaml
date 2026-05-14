@@ -1,0 +1,18 @@
+security:
+  ws_auth:
+    enabled: true
+    auth_timeout_seconds: 5
+    max_failed_attempts: 3
+    lockout_duration_seconds: 300
+  antivirus:
+    enabled: true
+    always_on_during_cocoon: true    # CRITICAL: Shield NEVER stops during upgrade
+    watch_paths: []                  # Add paths to monitor, e.g.: ["data/downloads"]
+    quarantine_path: "shield/quarantine"
+    yara_rules_path: "shield/antivirus/rules"
+    auto_synthesize_antidote: true
+  sandbox:
+    enabled: true
+    max_execution_time_seconds: 30
+    allowed_network: false
+    memory_limit_mb: 256

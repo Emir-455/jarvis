@@ -1,0 +1,17 @@
+[package]
+name = "jarvis-protocols"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+jarvis-common = { path = "../jarvis-common" }
+jarvis-biometrics = { path = "../jarvis-biometrics" }
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+sha2.workspace = true

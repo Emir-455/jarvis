@@ -1,0 +1,4 @@
+proactive:
+  enabled: true
+  research_interval_minutes: 30
+  max_concurrent_tasks: 3
